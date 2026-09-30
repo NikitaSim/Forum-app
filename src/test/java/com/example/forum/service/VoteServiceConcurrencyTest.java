@@ -91,7 +91,7 @@ class VoteServiceConcurrencyTest {
                             post,
                             VoteType.UP
                     );
-
+System.out.println(Thread.currentThread().getName() + " create vote + " + vote.getId());
                     voteService.createVote(vote);
 
                 } catch (IllegalStateException e) {
