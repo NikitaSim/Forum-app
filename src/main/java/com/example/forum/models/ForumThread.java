@@ -1,64 +1,49 @@
 package com.example.forum.models;
 
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+@Entity
+@Table(name = "threads")
+@Getter
+@Setter
+@NoArgsConstructor
 public class ForumThread {
-    
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "author_id", nullable = false)
     private User author;
+
+    @Column(nullable = false, length = 255)
     private String title;
 
-    final private List<String> tags = new ArrayList<>();
-    final private List<Post> posts = new ArrayList<>();
+    @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
+    private LocalDateTime createdAt;
 
-	public ForumThread(){
-    }
+    @Column(name = "updated_at", nullable = false, insertable = false)
+    private LocalDateTime updatedAt;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "thread_tags",
+        joinColumns = @JoinColumn(name = "thread_id"),
+        inverseJoinColumns = @JoinColumn(name = "tag_id"))
+    private Set<Tag> tags = new HashSet<>();
+
+    @OneToMany(mappedBy = "thread", fetch = FetchType.LAZY)
+    private List<Post> posts = new ArrayList<>();
 
     public ForumThread(Long id, User author, String title) {
-        this.id = id;
-        this.title = title;
-        this.author = author;
+        this.id = id; this.author = author; this.title = title;
     }
-
-	public Long getId() {
-		return id;
-	}
-
-	public void setId(Long id) {
-		this.id = id;
-	}
-
-	public User getAuthor() {
-		return author;
-	}
-
-	public void setAuthor(User author) {
-		this.author = author;
-	}
-
-	public String getTitle() {
-		return title;
-	}
-
-	public void setTitle(String title) {
-		this.title = title;
-	}
-
-    public List<String> getTags() {
-        return tags;
-    }
-
-    public void addTag(String tag) {
-        tags.add(tag);
-    }
-
-    public void removeTag(String tag) {
-        tags.remove(tag);
-    }
-
-     public List<Post> getPosts() {
-		return posts;
-	}
+    public void addTag(Tag tag) { tags.add(tag); }
+    public void removeTag(Tag tag) { tags.remove(tag); }
 }

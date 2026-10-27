@@ -1,69 +1,47 @@
 package com.example.forum.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import com.example.forum.models.ForumThread;
 import com.example.forum.models.User;
 import com.example.forum.models.UserRole;
-import com.example.forum.repository.MemoryRepository.InMemoryThreadRepository;
-import com.example.forum.repository.MemoryRepository.InMemoryUserRepository;
+import com.example.forum.repository.TagRepository;
+import com.example.forum.repository.ThreadRepository;
+import com.example.forum.repository.UserRepository;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
 class ThreadServiceTest {
+    @Mock ThreadRepository repository;
+    @Mock UserRepository userRepository;
+    @Mock TagRepository tagRepository;
+    @InjectMocks ThreadService service;
 
-    private ThreadService threadService;
-    private User user;
+    @Test
+    void createLoadsAuthorAndSavesThread() {
+        User author = new User(1L, "nikita", "n@mail.ru", "hash", UserRole.USER);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(author));
+        when(repository.save(any(ForumThread.class))).thenAnswer(inv -> inv.getArgument(0));
 
-    @BeforeEach
-    void setUp() {
-        var userRepository = new InMemoryUserRepository();
-        var threadRepository = new InMemoryThreadRepository();
+        ForumThread result = service.create(new ForumThread(null, new User(1L, null, null, null, null), "Go"));
 
-        user = new User(
-                1L,
-                "nikita",
-                "nikita@mail.ru",
-                "123456",
-                UserRole.USER
-        );
-
-        userRepository.create(user);
-
-        threadService = new ThreadService(
-                threadRepository,
-                userRepository
-        );
+        assertEquals("Go", result.getTitle());
+        assertSame(author, result.getAuthor());
+        verify(repository).save(result);
     }
 
     @Test
-    void createThread_shouldCreateAndAttachToAuthor() {
-        ForumThread thread = new ForumThread(
-                1L,
-                user,
-                "Go programming"
-        );
-
-        ForumThread created = threadService.createThread(thread);
-
-        assertEquals(thread, created);
-        assertTrue(user.getThreads().contains(thread));
-    }
-
-    @Test
-    void searchThreads_shouldFindByTitle() {
-        threadService.createThread(
-                new ForumThread(1L, user, "Go programming")
-        );
-
-        threadService.createThread(
-                new ForumThread(2L, user, "Java programming")
-        );
-
-        var result = threadService.searchThreads("go");
-
-        assertEquals(1, result.size());
-        assertEquals("Go programming", result.get(0).getTitle());
+    void createRejectsBlankTitle() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.create(new ForumThread(null, new User(1L, null, null, null, null), " ")));
+        verifyNoInteractions(repository, userRepository);
     }
 }

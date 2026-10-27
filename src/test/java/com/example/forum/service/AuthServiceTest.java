@@ -1,73 +1,53 @@
 package com.example.forum.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import com.example.forum.models.User;
 import com.example.forum.models.UserRole;
-import com.example.forum.repository.MemoryRepository.InMemoryUserRepository;
 import com.example.forum.repository.UserRepository;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
+    @Mock UserService userService;
+    @Mock UserRepository userRepository;
+    @Mock PasswordEncoder passwordEncoder;
+    @InjectMocks AuthService authService;
 
-    private AuthService authService;
-    private UserService userService;
-    private UserRepository userRepository;
+    @Test
+    void registerCreatesRegularUser() {
+        when(userService.create(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+        User result = authService.register("nikita", "nikita@mail.ru", "123456");
 
-    @BeforeEach
-    void setUp() {
-        userRepository = new InMemoryUserRepository();
-        userService = new UserService(userRepository);
-        authService = new AuthService(userService, userRepository);
+        assertEquals("nikita", result.getUsername());
+        assertEquals(UserRole.USER, result.getRole());
+        verify(userService).create(any(User.class));
     }
 
     @Test
-    void register_shouldCreateUser() {
-        User user = authService.register(
-                1L,
-                "nikita",
-                "nikita@mail.ru",
-                "123456"
-        );
+    void loginReturnsUserWhenPasswordMatches() {
+        User user = new User(1L, "nikita", "n@mail.ru", "$2a$hash", UserRole.USER);
+        when(userRepository.findByUsernameIgnoreCase("nikita")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("secret", "$2a$hash")).thenReturn(true);
 
-        assertNotNull(user);
-        assertEquals(1L, user.getId());
-        assertEquals("nikita", user.getUsername());
-        assertEquals("nikita@mail.ru", user.getEmail());
-        assertEquals(UserRole.USER, user.getRole());
+        assertSame(user, authService.login("nikita", "secret"));
     }
 
     @Test
-    void login_shouldReturnUserWithCorrectPassword() {
-        authService.register(
-                1L,
-                "nikita",
-                "nikita@mail.ru",
-                "123456"
-        );
+    void loginRejectsWrongPassword() {
+        User user = new User(1L, "nikita", "n@mail.ru", "$2a$hash", UserRole.USER);
+        when(userRepository.findByUsernameIgnoreCase("nikita")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong", "$2a$hash")).thenReturn(false);
 
-        User loggedIn = authService.login(1L, "123456");
-
-        assertNotNull(loggedIn);
-        assertEquals(1L, loggedIn.getId());
-        assertEquals("nikita", loggedIn.getUsername());
-    }
-
-    @Test
-    void login_shouldRejectIncorrectPassword() {
-        authService.register(
-                1L,
-                "nikita",
-                "nikita@mail.ru",
-                "123456"
-        );
-
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> authService.login(1L, "wrong-password")
-        );
+        assertThrows(IllegalArgumentException.class, () -> authService.login("nikita", "wrong"));
     }
 }

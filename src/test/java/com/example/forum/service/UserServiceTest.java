@@ -1,80 +1,60 @@
 package com.example.forum.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import com.example.forum.models.User;
 import com.example.forum.models.UserRole;
-import com.example.forum.repository.MemoryRepository.InMemoryUserRepository;
 import com.example.forum.repository.UserRepository;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
 class UserServiceTest {
+    @Mock UserRepository repository;
+    @Mock PasswordEncoder passwordEncoder;
+    @InjectMocks UserService service;
 
-    private UserService userService;
+    @Test
+    void createEncodesPasswordAndSavesUser() {
+        User input = new User(99L, " nikita ", "NIKITA@mail.ru", "123456", UserRole.USER);
+        when(repository.existsByUsername("nikita")).thenReturn(false);
+        when(repository.existsByEmail("nikita@mail.ru")).thenReturn(false);
+        when(passwordEncoder.encode("123456")).thenReturn("encoded");
+        when(repository.save(any(User.class))).thenAnswer(inv -> {
+            User saved = inv.getArgument(0);
+            saved.setId(1L);
+            return saved;
+        });
 
-    @BeforeEach
-    void setUp() {
-        UserRepository repository = new InMemoryUserRepository();
-        userService = new UserService(repository);
+        User result = service.create(input);
+
+        assertEquals(1L, result.getId());
+        assertEquals("nikita", result.getUsername());
+        assertEquals("nikita@mail.ru", result.getEmail());
+        assertEquals("encoded", result.getPassword());
+        verify(repository).save(input);
     }
 
     @Test
-    void createUser_shouldCreateUser() {
-        User user = new User(
-                1L,
-                "nikita",
-                "nikita@mail.ru",
-                "123456",
-                UserRole.USER
-        );
+    void createRejectsDuplicateUsername() {
+        when(repository.existsByUsername("nikita")).thenReturn(true);
+        User input = new User(null, "nikita", "n@mail.ru", "123456", UserRole.USER);
 
-        User created = userService.createUser(user);
-
-        assertEquals(user, created);
-        assertEquals("nikita", created.getUsername());
+        assertThrows(IllegalArgumentException.class, () -> service.create(input));
+        verify(repository, never()).save(any());
     }
 
     @Test
-    void createUser_shouldRejectDuplicateId() {
-        User user = new User(
-                1L,
-                "nikita",
-                "nikita@mail.ru",
-                "123456",
-                UserRole.USER
-        );
-
-        userService.createUser(user);
-
-        User duplicate = new User(
-                1L,
-                "other",
-                "other@mail.ru",
-                "123456",
-                UserRole.USER
-        );
-
-        assertThrows(
-                IllegalStateException.class,
-                () -> userService.createUser(duplicate)
-        );
-    }
-
-    @Test
-    void createUser_shouldRejectInvalidUser() {
-        User user = new User(
-                1L,
-                "",
-                "mail@mail.ru",
-                "123456",
-                UserRole.USER
-        );
-
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> userService.createUser(user)
-        );
+    void findRejectsMissingUser() {
+        when(repository.findById(42L)).thenReturn(Optional.empty());
+        assertThrows(IllegalArgumentException.class, () -> service.find(42L));
     }
 }

@@ -1,84 +1,43 @@
 package com.example.forum.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import com.example.forum.models.ForumThread;
 import com.example.forum.models.Post;
 import com.example.forum.models.User;
-import com.example.forum.models.UserRole;
-import com.example.forum.repository.MemoryRepository.InMemoryPostRepository;
-import com.example.forum.repository.MemoryRepository.InMemoryThreadRepository;
-import com.example.forum.repository.MemoryRepository.InMemoryUserRepository;
+import com.example.forum.repository.PostRepository;
+import com.example.forum.repository.ThreadRepository;
+import com.example.forum.repository.UserRepository;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
 class PostServiceTest {
-
-    private PostService postService;
-    private User user;
-    private ForumThread thread;
-
-    @BeforeEach
-    void setUp() {
-        var userRepository = new InMemoryUserRepository();
-        var threadRepository = new InMemoryThreadRepository();
-        var postRepository = new InMemoryPostRepository();
-
-        user = new User(
-                1L,
-                "nikita",
-                "nikita@mail.ru",
-                "123456",
-                UserRole.USER
-        );
-
-        userRepository.create(user);
-
-        thread = new ForumThread(
-                1L,
-                user,
-                "Go"
-        );
-
-        threadRepository.create(thread);
-
-        postService = new PostService(
-                postRepository,
-                userRepository,
-                threadRepository
-        );
-    }
+    @Mock PostRepository repository;
+    @Mock UserRepository users;
+    @Mock ThreadRepository threads;
+    @InjectMocks PostService service;
 
     @Test
-    void createPost_shouldAttachToAuthorAndThread() {
-        Post post = new Post(
-                1L,
-                "Hello Go",
-                user,
-                thread
-        );
+    void createLoadsAuthorAndThread() {
+        User author = new User(1L, "nikita", "n@mail.ru", "hash", null);
+        ForumThread thread = new ForumThread(2L, author, "Go");
+        when(users.findById(1L)).thenReturn(Optional.of(author));
+        when(threads.findById(2L)).thenReturn(Optional.of(thread));
+        when(repository.save(any(Post.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Post created = postService.createPost(post);
+        Post result = service.create(new Post(null, "Hello", new User(1L, null, null, null, null),
+                new ForumThread(2L, null, null)));
 
-        assertEquals(post, created);
-        assertTrue(user.getPosts().contains(post));
-        assertTrue(thread.getPosts().contains(post));
-    }
-
-    @Test
-    void searchPosts_shouldFindByContent() {
-        postService.createPost(
-                new Post(1L, "Hello Go", user, thread)
-        );
-
-        postService.createPost(
-                new Post(2L, "Hello Java", user, thread)
-        );
-
-        var result = postService.searchPosts("go");
-
-        assertEquals(1, result.size());
-        assertEquals("Hello Go", result.get(0).getContent());
+        assertSame(author, result.getAuthor());
+        assertSame(thread, result.getThread());
+        assertEquals("Hello", result.getContent());
     }
 }
