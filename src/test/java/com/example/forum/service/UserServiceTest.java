@@ -3,6 +3,10 @@ package com.example.forum.service;
 import com.example.forum.models.User;
 import com.example.forum.models.UserRole;
 import com.example.forum.repository.UserRepository;
+import com.example.forum.repository.ThreadRepository;
+import com.example.forum.repository.PostRepository;
+import com.example.forum.repository.CommentRepository;
+import com.example.forum.exception.UserHasDependenciesException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,6 +24,9 @@ import static org.mockito.Mockito.*;
 class UserServiceTest {
     @Mock UserRepository repository;
     @Mock PasswordEncoder passwordEncoder;
+    @Mock ThreadRepository threads;
+    @Mock PostRepository posts;
+    @Mock CommentRepository comments;
     @InjectMocks UserService service;
 
     @Test
@@ -56,5 +63,30 @@ class UserServiceTest {
     void findRejectsMissingUser() {
         when(repository.findById(42L)).thenReturn(Optional.empty());
         assertThrows(IllegalArgumentException.class, () -> service.find(42L));
+    }
+
+    @Test
+    void deleteRejectsUserWhenUserHasContent() {
+        User user = new User(7L, "nikita", "n@mail.ru", "hash", UserRole.USER);
+        when(repository.findById(7L)).thenReturn(Optional.of(user));
+        when(threads.countByAuthorId(7L)).thenReturn(1L);
+        when(posts.countByAuthorId(7L)).thenReturn(2L);
+        when(comments.countByAuthorId(7L)).thenReturn(3L);
+
+        assertThrows(UserHasDependenciesException.class, () -> service.delete(7L));
+        verify(repository, never()).delete(any(User.class));
+    }
+
+    @Test
+    void deleteRemovesUserWhenUserHasNoContent() {
+        User user = new User(7L, "nikita", "n@mail.ru", "hash", UserRole.USER);
+        when(repository.findById(7L)).thenReturn(Optional.of(user));
+        when(threads.countByAuthorId(7L)).thenReturn(0L);
+        when(posts.countByAuthorId(7L)).thenReturn(0L);
+        when(comments.countByAuthorId(7L)).thenReturn(0L);
+
+        service.delete(7L);
+
+        verify(repository).delete(user);
     }
 }

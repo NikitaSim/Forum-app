@@ -21,4 +21,5 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     @EntityGraph(attributePaths = {"author", "thread"})
     List<Post> findAllByAuthorId(Long authorId);
+    long countByAuthorId(Long authorId);
 }

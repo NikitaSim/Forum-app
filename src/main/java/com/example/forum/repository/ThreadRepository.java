@@ -21,4 +21,5 @@ public interface ThreadRepository extends JpaRepository<ForumThread, Long> {
 
     @EntityGraph(attributePaths = {"author", "tags"})
     List<ForumThread> findAllByTitleContainingIgnoreCase(String title);
+    long countByAuthorId(Long authorId);
 }

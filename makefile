@@ -8,7 +8,7 @@ run:
 	.\mvnw.cmd spring-boot:run
 test:
 	.\mvnw.cmd clean test
-	
+
 .PHONY: \
   up \
   down

@@ -1,6 +1,8 @@
 package com.example.forum.service;
 
 import com.example.forum.models.User;
+import com.example.forum.exception.InvalidRequestException;
+import com.example.forum.exception.InvalidCredentialsException;
 import com.example.forum.models.UserRole;
 import com.example.forum.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,14 +32,14 @@ public class AuthService {
 
     public User login(String username, String password) {
         if (username == null || username.isBlank() || password == null || password.isBlank()) {
-            throw new IllegalArgumentException("Username and password are required");
+            throw new InvalidRequestException("Имя пользователя и пароль обязательны.");
         }
 
         User user = userRepository.findByUsernameIgnoreCase(username.trim())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
+                .orElseThrow(() -> new InvalidCredentialsException());
 
         if (!passwordEncoder.matches(password, user.getPassword())) {
-            throw new IllegalArgumentException("Invalid credentials");
+            throw new InvalidCredentialsException();
         }
         return user;
     }

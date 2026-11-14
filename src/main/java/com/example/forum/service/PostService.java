@@ -1,6 +1,10 @@
 package com.example.forum.service;
 
 import com.example.forum.models.ForumThread;
+import com.example.forum.exception.UserNotFoundException;
+import com.example.forum.exception.ThreadNotFoundException;
+import com.example.forum.exception.PostNotFoundException;
+import com.example.forum.exception.InvalidRequestException;
 import com.example.forum.models.Post;
 import com.example.forum.models.User;
 import com.example.forum.repository.PostRepository;
@@ -27,8 +31,8 @@ public class PostService {
 
     public Post create(Post post) {
         validate(post);
-        User author=users.findById(post.getAuthor().getId()).orElseThrow(() -> new IllegalArgumentException("Author not found"));
-        ForumThread thread=threads.findById(post.getThread().getId()).orElseThrow(() -> new IllegalArgumentException("Thread not found"));
+        User author=users.findById(post.getAuthor().getId()).orElseThrow(() -> new UserNotFoundException(post.getAuthor().getId()));
+        ForumThread thread=threads.findById(post.getThread().getId()).orElseThrow(() -> new ThreadNotFoundException(post.getThread().getId()));
         post.setAuthor(author); post.setThread(thread); return repository.save(post);
     }
     @Transactional(readOnly=true)
@@ -38,8 +42,8 @@ public class PostService {
         return repository.findAll();
     }
     @Transactional(readOnly=true)
-    public Post find(Long id) { return repository.findById(id).orElseThrow(() -> new IllegalArgumentException("Post not found")); }
-    public Post update(Long id, Post input) { Post p=find(id); if(input.getContent()==null||input.getContent().isBlank()) throw new IllegalArgumentException("Content is required"); p.setContent(input.getContent()); return repository.save(p); }
+    public Post find(Long id) { return repository.findById(id).orElseThrow(() -> new PostNotFoundException(id)); }
+    public Post update(Long id, Post input) { Post p=find(id); if(input.getContent()==null||input.getContent().isBlank()) throw new InvalidRequestException("Содержимое поста обязательно."); p.setContent(input.getContent()); return repository.save(p); }
     public void delete(Long id) { repository.delete(find(id)); }
-    private void validate(Post p) { if(p==null||p.getContent()==null||p.getContent().isBlank()) throw new IllegalArgumentException("Content is required"); if(p.getAuthor()==null||p.getAuthor().getId()==null) throw new IllegalArgumentException("Author is required"); if(p.getThread()==null||p.getThread().getId()==null) throw new IllegalArgumentException("Thread is required"); }
+    private void validate(Post p) { if(p==null||p.getContent()==null||p.getContent().isBlank()) throw new InvalidRequestException("Содержимое поста обязательно."); if(p.getAuthor()==null||p.getAuthor().getId()==null) throw new InvalidRequestException("Необходимо указать автора поста."); if(p.getThread()==null||p.getThread().getId()==null) throw new InvalidRequestException("Необходимо указать тред для поста."); }
 }

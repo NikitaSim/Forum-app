@@ -4,6 +4,7 @@ import com.example.forum.models.UserRole;
 import com.example.forum.models.VoteType;
 import jakarta.validation.constraints.*;
 import lombok.*;
+import java.util.List;
 
 public final class ApiDtos {
     private ApiDtos() {}
@@ -46,6 +47,7 @@ public final class ApiDtos {
     public static class ThreadRequest {
         @NotBlank private String title;
         @NotNull private Long authorId;
+        private List<String> tags;
     }
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor
     public static class PostRequest {
@@ -78,5 +80,38 @@ public final class ApiDtos {
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor
     public static class TagRequest {
         @NotBlank private String name;
+    }
+
+    public record UserResponse(Long id, String username, String email, UserRole role) {
+        public static UserResponse of(com.example.forum.models.User user) {
+            return new UserResponse(user.getId(), user.getUsername(), user.getEmail(), user.getRole());
+        }
+    }
+
+    public record ThreadResponse(Long id, String title, Long authorId, java.util.List<String> tags) {
+        public static ThreadResponse of(com.example.forum.models.ForumThread thread) {
+            return new ThreadResponse(thread.getId(), thread.getTitle(), thread.getAuthor().getId(),
+                    thread.getTags().stream().map(com.example.forum.models.Tag::getName).toList());
+        }
+    }
+
+    public record PostResponse(Long id, String content, Long authorId, Long threadId) {
+        public static PostResponse of(com.example.forum.models.Post post) {
+            return new PostResponse(post.getId(), post.getContent(), post.getAuthor().getId(),
+                    post.getThread().getId());
+        }
+    }
+
+    public record CommentResponse(Long id, String content, Long authorId, Long postId) {
+        public static CommentResponse of(com.example.forum.models.Comment comment) {
+            return new CommentResponse(comment.getId(), comment.getContent(), comment.getAuthor().getId(),
+                    comment.getPost().getId());
+        }
+    }
+
+    public record VoteResponse(Long id, Long userId, Long postId, VoteType type) {
+        public static VoteResponse of(com.example.forum.models.Vote vote) {
+            return new VoteResponse(vote.getId(), vote.getUser().getId(), vote.getPost().getId(), vote.getType());
+        }
     }
 }
