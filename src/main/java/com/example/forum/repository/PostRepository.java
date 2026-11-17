@@ -1,19 +1,24 @@
 package com.example.forum.repository;
 
+import com.example.forum.models.Post;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+
 import java.util.List;
 import java.util.Optional;
 
-import com.example.forum.models.*;
+public interface PostRepository extends JpaRepository<Post, Long> {
+    @Override
+    @EntityGraph(attributePaths = {"author", "thread"})
+    List<Post> findAll();
 
-public interface PostRepository {
-
-    Post create (Post post);
-       
+    @Override
+    @EntityGraph(attributePaths = {"author", "thread"})
     Optional<Post> findById(Long id);
 
-    List<Post> findAllByAuthorId(Long AuthorId);
+    @EntityGraph(attributePaths = {"author", "thread"})
+    List<Post> findAllByThreadId(Long threadId);
 
-    List<Post> findAllByThreadId(Long ThreadId);
-
-    void deletePost(Long id);
+    @EntityGraph(attributePaths = {"author", "thread"})
+    List<Post> findAllByAuthorId(Long authorId);
 }

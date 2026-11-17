@@ -1,68 +1,46 @@
 package com.example.forum.models;
 
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+@Entity
+@Table(name = "posts")
+@Getter
+@Setter
+@NoArgsConstructor
 public class Post {
-
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "thread_id", nullable = false)
     private ForumThread thread;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "author_id", nullable = false)
     private User author;
 
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    private final List<Comment> comments = new ArrayList<>();
-    private final List<Vote> votes = new ArrayList<>();
+    @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
+    private LocalDateTime createdAt;
 
-    public Post() {
-    }
+    @Column(name = "updated_at", nullable = false, insertable = false)
+    private LocalDateTime updatedAt;
+
+    @OneToMany(mappedBy = "post", fetch = FetchType.LAZY)
+    private List<Comment> comments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "post", fetch = FetchType.LAZY)
+    private List<Vote> votes = new ArrayList<>();
 
     public Post(Long id, String content, User author, ForumThread thread) {
-        this.id = id;
-        this.content = content;
-        this.author = author;
-        this.thread = thread;
+        this.id=id; this.content=content; this.author=author; this.thread=thread;
     }
-
-	public Long getId() {
-		return id;
-	}
-
-	public void setId(Long id) {
-		this.id = id;
-	}
-
-	public ForumThread getThread() {
-		return thread;
-	}
-
-	public void setThread(ForumThread thread) {
-		this.thread = thread;
-	}
-
-	public User getAuthor() {
-		return author;
-	}
-
-	public void setAuthor(User author) {
-		this.author = author;
-	}
-
-	public String getContent() {
-		return content;
-	}
-
-	public void setContent(String content) {
-		this.content = content;
-	}
-
-	public List<Comment> getComments() {
-		return comments;
-	}
-
-	public List<Vote> getVotes() {
-		return votes;
-	}
-
 }

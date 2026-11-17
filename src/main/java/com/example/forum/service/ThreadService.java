@@ -1,175 +1,69 @@
 package com.example.forum.service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-
 import com.example.forum.models.ForumThread;
-import com.example.forum.models.Post;
+import com.example.forum.models.Tag;
+import com.example.forum.repository.TagRepository;
 import com.example.forum.repository.ThreadRepository;
 import com.example.forum.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
 
+@Service
+//@RequiredArgsConstructor
+@Transactional
 public class ThreadService {
-
-    private final ThreadRepository threadRepository;
+    private final ThreadRepository repository;
     private final UserRepository userRepository;
+    private final TagRepository tagRepository;
 
-    public ThreadService(
-            ThreadRepository threadRepository,
-            UserRepository userRepository
-    ) {
-        this.threadRepository = threadRepository;
+    public ThreadService(ThreadRepository repository, TagRepository tagRepository, UserRepository userRepository) {
+        this.repository = repository;
+        this.tagRepository = tagRepository;
         this.userRepository = userRepository;
     }
 
-    public ForumThread createThread(ForumThread thread) {
-        validateThread(thread);
-
-        if (threadRepository.findById(thread.getId()).isPresent()) {
-            throw new IllegalStateException(
-                    "Thread with id " + thread.getId() + " already exists"
-            );
-        }
-
-        if (userRepository.findById(thread.getAuthor().getId()).isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Author does not exist"
-            );
-        }
-
-        ForumThread createdThread = threadRepository.create(thread);
-
-        thread.getAuthor().getThreads().add(thread);
-
-        return createdThread;
+    public ForumThread create(ForumThread thread) {
+        validate(thread);
+        thread.setAuthor(userRepository.findById(thread.getAuthor().getId())
+                .orElseThrow(() -> new IllegalArgumentException("Author not found")));
+        return repository.save(thread);
     }
-
-    public Optional<ForumThread> getThread(Long id) {
-        validateId(id);
-        return threadRepository.findById(id);
+    @Transactional(readOnly=true)
+    public List<ForumThread> findAll(String title, Long authorId) {
+        if (title != null && !title.isBlank()) return repository.findAllByTitleContainingIgnoreCase(title.trim());
+        if (authorId != null) return repository.findAllByAuthorId(authorId);
+        return repository.findAll();
     }
-
-    public List<ForumThread> showThreads() {
-        return threadRepository.showAllThreads();
+    @Transactional(readOnly=true)
+    public ForumThread find(Long id) { return repository.findById(id).orElseThrow(() -> new IllegalArgumentException("Thread not found")); }
+    public ForumThread update(Long id, ForumThread input) {
+        ForumThread t=find(id);
+        if (input.getTitle()==null || input.getTitle().isBlank()) throw new IllegalArgumentException("Title is required");
+        t.setTitle(input.getTitle());
+        if (input.getAuthor()!=null && input.getAuthor().getId()!=null)
+            t.setAuthor(userRepository.findById(input.getAuthor().getId()).orElseThrow(() -> new IllegalArgumentException("Author not found")));
+        return repository.save(t);
     }
+    public void delete(Long id) { repository.delete(find(id)); }
 
-    public void deleteThread(Long id) {
-        validateId(id);
-
-        ForumThread thread = threadRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Thread with id " + id + " not found"
-                ));
-
-        thread.getAuthor().getThreads().remove(thread);
-
-        threadRepository.deleteThread(id);
+    public ForumThread addTag(Long id, String name) {
+        ForumThread t=find(id);
+        if(name==null || name.isBlank()) throw new IllegalArgumentException("Tag is required");
+        Tag tag=tagRepository.findByNameIgnoreCase(name.trim()).orElseGet(() -> tagRepository.save(new Tag(null,name.trim())));
+        t.addTag(tag); return repository.save(t);
     }
-
-    public List<ForumThread> searchThreads(String query) {
-        if (query == null || query.isBlank()) {
-            throw new IllegalArgumentException(
-                    "Search query cannot be empty"
-            );
-        }
-
-        String normalizedQuery = query.toLowerCase();
-
-        List<ForumThread> result = new ArrayList<>();
-
-        for (ForumThread thread : threadRepository.showAllThreads()) {
-            if (thread.getTitle() != null &&
-                    thread.getTitle()
-                            .toLowerCase()
-                            .contains(normalizedQuery)) {
-
-                result.add(thread);
-            }
-        }
-
-        return result;
+    public ForumThread removeTag(Long id, String name) {
+        ForumThread t=find(id);
+        t.getTags().removeIf(tag -> tag.getName().equalsIgnoreCase(name));
+        return repository.save(t);
     }
+    @Transactional(readOnly=true)
+    public List<String> tags(Long id) { return find(id).getTags().stream().map(Tag::getName).toList(); }
 
-    public void addTag(Long threadId, String tag) {
-        ForumThread thread = getExistingThread(threadId);
-
-        validateTag(tag);
-
-        String normalizedTag = tag.trim();
-
-        if (!thread.getTags().contains(normalizedTag)) {
-            thread.addTag(normalizedTag);
-        }
-    }
-
-    public void removeTag(Long threadId, String tag) {
-        ForumThread thread = getExistingThread(threadId);
-
-        validateTag(tag);
-
-        thread.removeTag(tag.trim());
-    }
-
-    public List<String> getTags(Long threadId) {
-        ForumThread thread = getExistingThread(threadId);
-
-        return List.copyOf(thread.getTags());
-    }
-
-    public List<Post> getThreadPosts(Long threadId) {
-        ForumThread thread = getExistingThread(threadId);
-
-        return List.copyOf(thread.getPosts());
-    }
-
-    private ForumThread getExistingThread(Long id) {
-        validateId(id);
-
-        return threadRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Thread with id " + id + " not found"
-                ));
-    }
-
-    private void validateThread(ForumThread thread) {
-        if (thread == null) {
-            throw new IllegalArgumentException(
-                    "Thread cannot be null"
-            );
-        }
-
-        validateId(thread.getId());
-
-        if (thread.getTitle() == null ||
-                thread.getTitle().isBlank()) {
-
-            throw new IllegalArgumentException(
-                    "Thread title cannot be empty"
-            );
-        }
-
-        if (thread.getAuthor() == null ||
-                thread.getAuthor().getId() == null) {
-
-            throw new IllegalArgumentException(
-                    "Thread author cannot be null"
-            );
-        }
-    }
-
-    private void validateTag(String tag) {
-        if (tag == null || tag.isBlank()) {
-            throw new IllegalArgumentException(
-                    "Tag cannot be empty"
-            );
-        }
-    }
-
-    private void validateId(Long id) {
-        if (id == null || id <= 0) {
-            throw new IllegalArgumentException(
-                    "Id must be a positive number"
-            );
-        }
+    private void validate(ForumThread t) {
+        if(t==null || t.getTitle()==null || t.getTitle().isBlank()) throw new IllegalArgumentException("Title is required");
+        if(t.getAuthor()==null || t.getAuthor().getId()==null) throw new IllegalArgumentException("Author is required");
     }
 }

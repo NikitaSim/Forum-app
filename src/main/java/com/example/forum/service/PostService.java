@@ -1,208 +1,45 @@
 package com.example.forum.service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-
 import com.example.forum.models.ForumThread;
 import com.example.forum.models.Post;
-import com.example.forum.models.Vote;
-import com.example.forum.models.VoteType;
+import com.example.forum.models.User;
 import com.example.forum.repository.PostRepository;
 import com.example.forum.repository.ThreadRepository;
 import com.example.forum.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
 
+@Service
+//@RequiredArgsConstructor
+@Transactional
 public class PostService {
+    private final PostRepository repository;
+    private final UserRepository users;
+    private final ThreadRepository threads;
 
-    private final PostRepository postRepository;
-    private final UserRepository userRepository;
-    private final ThreadRepository threadRepository;
-
-    public PostService(
-            PostRepository postRepository,
-            UserRepository userRepository,
-            ThreadRepository threadRepository
-    ) {
-        this.postRepository = postRepository;
-        this.userRepository = userRepository;
-        this.threadRepository = threadRepository;
+    public PostService(PostRepository repository, ThreadRepository threads, UserRepository users) {
+        this.repository = repository;
+        this.threads = threads;
+        this.users = users;
     }
 
-    public Post createPost(Post post) {
-        validatePost(post);
-
-        if (postRepository.findById(post.getId()).isPresent()) {
-            throw new IllegalStateException(
-                    "Post with id " + post.getId() + " already exists"
-            );
-        }
-
-        Long authorId = post.getAuthor().getId();
-        Long threadId = post.getThread().getId();
-
-        if (userRepository.findById(authorId).isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Author does not exist"
-            );
-        }
-
-        ForumThread thread = threadRepository.findById(threadId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Thread does not exist"
-                ));
-
-        Post createdPost = postRepository.create(post);
-
-        post.getAuthor().getPosts().add(post);
-        thread.getPosts().add(post);
-
-        return createdPost;
+    public Post create(Post post) {
+        validate(post);
+        User author=users.findById(post.getAuthor().getId()).orElseThrow(() -> new IllegalArgumentException("Author not found"));
+        ForumThread thread=threads.findById(post.getThread().getId()).orElseThrow(() -> new IllegalArgumentException("Thread not found"));
+        post.setAuthor(author); post.setThread(thread); return repository.save(post);
     }
-
-    public Optional<Post> getPost(Long id) {
-        validateId(id);
-        return postRepository.findById(id);
+    @Transactional(readOnly=true)
+    public List<Post> findAll(Long threadId, Long authorId) {
+        if(threadId!=null) return repository.findAllByThreadId(threadId);
+        if(authorId!=null) return repository.findAllByAuthorId(authorId);
+        return repository.findAll();
     }
-
-    public List<Post> showAuthorPosts(Long authorId) {
-        validateId(authorId);
-
-        if (userRepository.findById(authorId).isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Author does not exist"
-            );
-        }
-
-        return postRepository.findAllByAuthorId(authorId);
-    }
-
-    public List<Post> showThreadPosts(Long threadId) {
-        validateId(threadId);
-
-        if (threadRepository.findById(threadId).isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Thread does not exist"
-            );
-        }
-
-        return postRepository.findAllByThreadId(threadId);
-    }
-
-    public void deletePost(Long id) {
-        validateId(id);
-
-        Post post = postRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Post with id " + id + " not found"
-                ));
-
-        post.getAuthor().getPosts().remove(post);
-
-        if (post.getThread() != null) {
-            post.getThread().getPosts().remove(post);
-        }
-
-        postRepository.deletePost(id);
-    }
-
-    public List<Post> searchPosts(String query) {
-        if (query == null || query.isBlank()) {
-            throw new IllegalArgumentException(
-                    "Search query cannot be empty"
-            );
-        }
-
-        String normalizedQuery = query.toLowerCase();
-
-        List<Post> result = new ArrayList<>();
-
-        for (ForumThread thread : threadRepository.showAllThreads()) {
-
-            for (Post post : thread.getPosts()) {
-
-                if (post.getContent() != null &&
-                        post.getContent()
-                                .toLowerCase()
-                                .contains(normalizedQuery)) {
-
-                    result.add(post);
-                }
-            }
-        }
-
-        return result;
-    }
-
-    public List<com.example.forum.models.Comment> getPostComments(Long postId) {
-        Post post = getExistingPost(postId);
-
-        return List.copyOf(post.getComments());
-    }
-
-    public int getPostRating(Long postId) {
-        Post post = getExistingPost(postId);
-
-        int rating = 0;
-
-        for (Vote vote : post.getVotes()) {
-            if (vote.getType() == VoteType.UP) {
-                rating++;
-            } else if (vote.getType() == VoteType.DOWN) {
-                rating--;
-            }
-        }
-
-        return rating;
-    }
-
-    private Post getExistingPost(Long id) {
-        validateId(id);
-
-        return postRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Post with id " + id + " not found"
-                ));
-    }
-
-    private void validatePost(Post post) {
-        if (post == null) {
-            throw new IllegalArgumentException(
-                    "Post cannot be null"
-            );
-        }
-
-        validateId(post.getId());
-
-        if (post.getContent() == null ||
-                post.getContent().isBlank()) {
-
-            throw new IllegalArgumentException(
-                    "Post content cannot be empty"
-            );
-        }
-
-        if (post.getAuthor() == null ||
-                post.getAuthor().getId() == null) {
-
-            throw new IllegalArgumentException(
-                    "Post author cannot be null"
-            );
-        }
-
-        if (post.getThread() == null ||
-                post.getThread().getId() == null) {
-
-            throw new IllegalArgumentException(
-                    "Post thread cannot be null"
-            );
-        }
-    }
-
-    private void validateId(Long id) {
-        if (id == null || id <= 0) {
-            throw new IllegalArgumentException(
-                    "Id must be a positive number"
-            );
-        }
-    }
+    @Transactional(readOnly=true)
+    public Post find(Long id) { return repository.findById(id).orElseThrow(() -> new IllegalArgumentException("Post not found")); }
+    public Post update(Long id, Post input) { Post p=find(id); if(input.getContent()==null||input.getContent().isBlank()) throw new IllegalArgumentException("Content is required"); p.setContent(input.getContent()); return repository.save(p); }
+    public void delete(Long id) { repository.delete(find(id)); }
+    private void validate(Post p) { if(p==null||p.getContent()==null||p.getContent().isBlank()) throw new IllegalArgumentException("Content is required"); if(p.getAuthor()==null||p.getAuthor().getId()==null) throw new IllegalArgumentException("Author is required"); if(p.getThread()==null||p.getThread().getId()==null) throw new IllegalArgumentException("Thread is required"); }
 }
