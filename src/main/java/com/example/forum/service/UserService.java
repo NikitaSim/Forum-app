@@ -11,6 +11,7 @@ import com.example.forum.exception.InvalidRequestException;
 import com.example.forum.exception.DuplicateResourceException;
 import com.example.forum.exception.UserHasDependenciesException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Locale;
 
+@Slf4j
 @Service
 //@RequiredArgsConstructor
 @Transactional
@@ -56,7 +58,9 @@ public class UserService {
         if (user.getRole() == null) {
             user.setRole(UserRole.USER);
         }
-        return repository.save(user);
+        User saved = repository.save(user);
+        log.info("Создан пользователь '{}' с ролью {}", saved.getUsername(), saved.getRole());
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -112,6 +116,7 @@ public class UserService {
         }
 
         repository.delete(user);
+        log.info("Удалён пользователь id={}", id);
     }
 
     private void validateUser(User user) {

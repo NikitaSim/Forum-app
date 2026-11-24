@@ -7,6 +7,7 @@ import com.example.forum.exception.ResourceNotFoundException;
 import com.example.forum.exception.UserHasDependenciesException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Slf4j
 @RestControllerAdvice
 public class RestExceptionHandler {
 
@@ -134,6 +136,7 @@ public class RestExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleUnexpected(
             Exception exception, HttpServletRequest request) {
+        log.error("Необработанная ошибка при {} {}", request.getMethod(), request.getRequestURI(), exception);
         return error(HttpStatus.INTERNAL_SERVER_ERROR,
                 "Во время обработки запроса произошла внутренняя ошибка сервера.",
                 "Повторите запрос позже. Если ошибка повторяется, обратитесь к администратору.",
@@ -143,6 +146,7 @@ public class RestExceptionHandler {
     private ResponseEntity<ApiError> error(
             HttpStatus status, String message, String solution,
             List<String> details, HttpServletRequest request) {
+        log.warn("Ошибка {} {}: {} ({})", status.value(), request.getRequestURI(), message, request.getMethod());
         ApiError body = new ApiError(LocalDateTime.now(), status.value(), status.getReasonPhrase(),
                 message, request.getRequestURI(), solution, details);
         return ResponseEntity.status(status).body(body);
